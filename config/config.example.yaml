@@ -1,0 +1,47 @@
+# Copy to config/config.yaml and edit. Loaded by tests via DOT11_CONFIG env var
+# or the default path config/config.yaml.
+
+device:
+  # adb serial; leave null to use the only attached device.
+  serial: null
+  # Path to iperf3 binary on the device (push with `adb push iperf3 /data/local/tmp/`).
+  iperf3_path: /data/local/tmp/iperf3
+
+iperf:
+  server: 192.168.1.10
+  port: 5201
+  # Default per-direction duration in seconds.
+  duration: 10
+  parallel_streams: 1
+
+ping:
+  target: 192.168.1.1
+  count: 50
+  interval: 0.2
+
+# Known networks for functional tests. `type` is one of: open, wpa2, wpa3.
+networks:
+  - ssid: TestAP-Open
+    type: open
+  - ssid: TestAP-WPA2
+    type: wpa2
+    password: changeme
+  # For roam tests, list two BSSIDs of the same SSID on different bands/APs.
+  roam:
+    ssid: TestAP-WPA2
+    bssids:
+      - aa:bb:cc:dd:ee:01
+      - aa:bb:cc:dd:ee:02
+
+soak:
+  # Default duration for soak tests (seconds). Override with DOT11_SOAK_SECONDS.
+  duration: 300
+  reconnect_iterations: 20
+
+thresholds:
+  # Pass/fail gates for performance tests.
+  min_tcp_dl_mbps: 100
+  min_tcp_ul_mbps: 50
+  min_udp_dl_mbps: 80
+  max_ping_avg_ms: 20
+  max_ping_loss_pct: 1.0

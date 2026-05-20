@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dot11test"
+version = "0.1.0"
+description = "Android WiFi functionality and performance test framework"
+requires-python = ">=3.9"
+dependencies = [
+    "pytest>=7.4",
+    "pytest-html>=4.1",
+    "pytest-timeout>=2.2",
+    "pyyaml>=6.0",
+]
+
+[tool.setuptools.packages.find]
+include = ["dot11test*"]
