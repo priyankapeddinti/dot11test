@@ -1,16 +1,51 @@
 # Copy to config/config.yaml and edit. Loaded by tests via DOT11_CONFIG env var
 # or the default path config/config.yaml.
 
+# Which platform driver to use: 'android' or 'ios'. Override with DOT11_PLATFORM.
+platform: android
+
+# ---------------------------------------------------------------------------
+# Android driver (used when platform: android)
+# ---------------------------------------------------------------------------
 device:
   # adb serial; leave null to use the only attached device.
   serial: null
   # Path to iperf3 binary on the device (push with `adb push iperf3 /data/local/tmp/`).
   iperf3_path: /data/local/tmp/iperf3
 
+# ---------------------------------------------------------------------------
+# iOS driver (used when platform: ios). Requires a jailbroken device, SSH,
+# and `iproxy <port> 22` running on the host to tunnel SSH over USB.
+# ---------------------------------------------------------------------------
+ios:
+  host: 127.0.0.1
+  port: 2222
+  user: root
+  # Prefer key-based auth. Password auth needs `sshpass` on the host.
+  ssh_key: ~/.ssh/id_ios
+  password: null
+  iperf3_path: /usr/local/bin/iperf3   # or /opt/procursus/bin/iperf3
+  interface: en0
+  # iOS has no built-in CLI for WiFi control. Provide command templates here
+  # for your helper (custom binary, Sileo package, etc.). Anything you leave
+  # out makes that operation raise NotImplementedError and skip relevant tests.
+  # Templates can use {ssid}, {password}, {bssid}, {security}.
+  wifi_helper:
+    enable:     "wifi-tool on"
+    disable:    "wifi-tool off"
+    scan_start: "wifi-tool scan-start"
+    scan:       "wifi-tool scan-list"      # BSSID FREQ RSSI SSID per line
+    status:     "wifi-tool status"         # ssid="..." bssid=... rssi=... freq=... enabled=1
+    connect:    "wifi-tool connect {ssid} {password}"
+    disconnect: "wifi-tool disconnect"
+    forget:     "wifi-tool forget {ssid}"
+
+# ---------------------------------------------------------------------------
+# Common (platform-independent)
+# ---------------------------------------------------------------------------
 iperf:
   server: 192.168.1.10
   port: 5201
-  # Default per-direction duration in seconds.
   duration: 10
   parallel_streams: 1
 
@@ -19,14 +54,12 @@ ping:
   count: 50
   interval: 0.2
 
-# Known networks for functional tests. `type` is one of: open, wpa2, wpa3.
 networks:
   - ssid: TestAP-Open
     type: open
   - ssid: TestAP-WPA2
     type: wpa2
     password: changeme
-  # For roam tests, list two BSSIDs of the same SSID on different bands/APs.
   roam:
     ssid: TestAP-WPA2
     bssids:
@@ -34,12 +67,10 @@ networks:
       - aa:bb:cc:dd:ee:02
 
 soak:
-  # Default duration for soak tests (seconds). Override with DOT11_SOAK_SECONDS.
   duration: 300
   reconnect_iterations: 20
 
 thresholds:
-  # Pass/fail gates for performance tests.
   min_tcp_dl_mbps: 100
   min_tcp_ul_mbps: 50
   min_udp_dl_mbps: 80

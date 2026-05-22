@@ -61,7 +61,7 @@ def test_ping_soak(device, config, connected):
     outages = 0
 
     while time.time() < deadline:
-        result = ping(device.adb, target, count=batch_count, interval=batch_interval)
+        result = ping(device.shell, target, count=batch_count, interval=batch_interval)
         sample = {
             "t": int(time.time()),
             "loss_pct": result.loss_percent,

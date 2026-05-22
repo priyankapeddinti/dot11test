@@ -3,8 +3,8 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 
+from ..iperf import Iperf3
 from .adb import Adb
-from .iperf import Iperf3
 from .wifi import Wifi
 
 log = logging.getLogger(__name__)
@@ -24,6 +24,7 @@ class AndroidDevice:
 
     def __init__(self, adb: Adb, iperf3_path: str = "/data/local/tmp/iperf3"):
         self.adb = adb
+        self.shell = adb  # cross-platform alias; satisfies Shell protocol
         self.wifi = Wifi(adb)
         self.iperf = Iperf3(adb, binary_path=iperf3_path)
 

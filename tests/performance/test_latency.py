@@ -14,7 +14,7 @@ def test_ping_latency(device, config, connected):
     target = config.require("ping", "target")
     count = int(config.get("ping", "count", default=50))
     interval = float(config.get("ping", "interval", default=0.2))
-    result = ping(device.adb, target, count=count, interval=interval)
+    result = ping(device.shell, target, count=count, interval=interval)
     log.info(
         "ping %s: tx=%d rx=%d loss=%.2f%% avg=%.2fms mdev=%.2fms",
         target, result.transmitted, result.received, result.loss_percent,

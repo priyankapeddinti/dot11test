@@ -5,7 +5,7 @@ import logging
 import shlex
 from dataclasses import dataclass
 
-from .adb import Adb
+from .shell import Shell
 
 log = logging.getLogger(__name__)
 
@@ -23,19 +23,20 @@ class IperfResult:
 
 
 class Iperf3:
-    """Run iperf3 on the device against a host server."""
+    """Run iperf3 on the device against a host server. Works for any Shell."""
 
-    def __init__(self, adb: Adb, binary_path: str = "/data/local/tmp/iperf3"):
-        self.adb = adb
+    def __init__(self, shell: Shell, binary_path: str = "/data/local/tmp/iperf3"):
+        self.shell = shell
         self.binary = binary_path
 
     def check_available(self) -> None:
-        res = self.adb.shell(f"test -x {shlex.quote(self.binary)} && echo OK", check=False)
+        res = self.shell.shell(
+            f"test -x {shlex.quote(self.binary)} && echo OK", check=False
+        )
         if "OK" not in res.stdout:
             raise RuntimeError(
                 f"iperf3 binary not found or not executable at {self.binary} on device. "
-                f"Push one with: adb push iperf3 {self.binary} && "
-                f"adb shell chmod 755 {self.binary}"
+                f"Install it on the DUT and set device.iperf3_path in config."
             )
 
     def run(
@@ -50,10 +51,6 @@ class Iperf3:
         reverse: bool = False,
         timeout: float | None = None,
     ) -> IperfResult:
-        """Run a single iperf3 measurement.
-
-        reverse=True measures downlink (server -> device).
-        """
         protocol = "udp" if udp else "tcp"
         direction = "downlink" if reverse else "uplink"
         args = [
@@ -74,7 +71,7 @@ class Iperf3:
 
         cmd = " ".join(shlex.quote(a) for a in args)
         log.info("iperf3 %s %s: %s", protocol, direction, cmd)
-        res = self.adb.shell(cmd, timeout=timeout or (duration + 30))
+        res = self.shell.shell(cmd, timeout=timeout or (duration + 30))
         try:
             data = json.loads(res.stdout)
         except json.JSONDecodeError as e:
@@ -95,7 +92,6 @@ class Iperf3:
                 raw=data,
             )
 
-        # TCP: pick the sender or receiver sum based on direction.
         sum_key = "sum_received" if reverse else "sum_sent"
         summary = end.get(sum_key) or end.get("sum_sent", {})
         throughput = summary.get("bits_per_second", 0) / 1e6

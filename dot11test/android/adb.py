@@ -3,7 +3,8 @@ from __future__ import annotations
 import logging
 import shlex
 import subprocess
-from dataclasses import dataclass
+
+from ..types import ShellResult
 
 log = logging.getLogger(__name__)
 
@@ -18,17 +19,6 @@ class AdbError(RuntimeError):
         self.returncode = returncode
         self.stdout = stdout
         self.stderr = stderr
-
-
-@dataclass
-class AdbResult:
-    returncode: int
-    stdout: str
-    stderr: str
-
-    @property
-    def ok(self) -> bool:
-        return self.returncode == 0
 
 
 class Adb:
@@ -50,7 +40,7 @@ class Adb:
         timeout: float | None = 60,
         check: bool = True,
         input_text: str | None = None,
-    ) -> AdbResult:
+    ) -> ShellResult:
         cmd = self._prefix() + args
         log.debug("adb cmd: %s", " ".join(shlex.quote(c) for c in cmd))
         proc = subprocess.run(
@@ -60,7 +50,7 @@ class Adb:
             timeout=timeout,
             input=input_text,
         )
-        result = AdbResult(proc.returncode, proc.stdout, proc.stderr)
+        result = ShellResult(proc.returncode, proc.stdout, proc.stderr)
         if check and not result.ok:
             raise AdbError(cmd, result.returncode, result.stdout, result.stderr)
         return result
@@ -72,7 +62,7 @@ class Adb:
         timeout: float | None = 60,
         check: bool = True,
         as_root: bool = False,
-    ) -> AdbResult:
+    ) -> ShellResult:
         if as_root:
             cmd = f"su -c {shlex.quote(cmd)}"
         return self.run(["shell", cmd], timeout=timeout, check=check)

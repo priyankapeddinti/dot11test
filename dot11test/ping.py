@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-from .adb import Adb
+from .shell import Shell
 
 
 @dataclass
@@ -24,7 +24,7 @@ class PingResult:
 
 
 def ping(
-    adb: Adb,
+    shell: Shell,
     target: str,
     *,
     count: int = 50,
@@ -36,7 +36,9 @@ def ping(
     if packet_size is not None:
         cmd += ["-s", str(packet_size)]
     cmd.append(target)
-    res = adb.shell(" ".join(cmd), timeout=timeout or (count * interval + 30), check=False)
+    res = shell.shell(
+        " ".join(cmd), timeout=timeout or (count * interval + 30), check=False
+    )
     out = res.stdout
 
     tx_rx = re.search(r"(\d+)\s+packets transmitted,\s*(\d+)\s+received", out)

@@ -1,2 +1,2 @@
-"""Android WiFi test framework."""
-__version__ = "0.1.0"
+"""Android & iOS WiFi test framework."""
+__version__ = "0.2.0"
