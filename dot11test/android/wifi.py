@@ -117,7 +117,7 @@ class Wifi:
             enabled = False
 
         # Look for the "mWifiInfo" line or the "Wi-Fi is connected" block.
-        ssid = self._extract(out, r'SSID:\s*"?([^",\n]+)"?')
+        ssid = self._extract(out, r'\bSSID:\s*"?([^",\n]+)"?')
         bssid = self._extract(out, r"BSSID:\s*([0-9a-fA-F:]{17})")
         rssi = self._extract_int(out, r"RSSI:\s*(-?\d+)")
         link = self._extract_int(out, r"Link speed:\s*(\d+)\s*Mbps")

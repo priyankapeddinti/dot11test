@@ -10,15 +10,15 @@ pytestmark = pytest.mark.functional
 def test_roam_between_bssids(device, config):
     """Observe a BSSID change while staying on the same SSID.
 
-    Requires two APs broadcasting the same SSID listed under networks.roam.bssids.
+    Requires two APs broadcasting the same SSID listed under roam.bssids.
     The test connects, then waits up to `timeout` seconds for the device to
     associate with a different BSSID than the initial one. Forcing a roam is
     vendor-specific, so this test is observational unless you trigger it
     externally (e.g. disable the current radio).
     """
-    roam_cfg = config.get("networks", "roam")
+    roam_cfg = config.get("roam")
     if not roam_cfg or len(roam_cfg.get("bssids", [])) < 2:
-        pytest.skip("networks.roam not configured with >=2 bssids")
+        pytest.skip("roam not configured with >=2 bssids")
 
     ssid = roam_cfg["ssid"]
     expected_bssids = {b.lower() for b in roam_cfg["bssids"]}

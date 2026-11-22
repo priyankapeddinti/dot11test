@@ -92,8 +92,8 @@ class Iperf3:
                 raw=data,
             )
 
-        sum_key = "sum_received" if reverse else "sum_sent"
-        summary = end.get(sum_key) or end.get("sum_sent", {})
+        # Receiver-side bytes are the true delivered throughput in either direction.
+        summary = end.get("sum_received") or end.get("sum_sent", {})
         throughput = summary.get("bits_per_second", 0) / 1e6
         retx = end.get("sum_sent", {}).get("retransmits")
         return IperfResult(

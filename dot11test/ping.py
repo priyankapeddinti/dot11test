@@ -41,7 +41,7 @@ def ping(
     )
     out = res.stdout
 
-    tx_rx = re.search(r"(\d+)\s+packets transmitted,\s*(\d+)\s+received", out)
+    tx_rx = re.search(r"(\d+)\s+packets transmitted,\s*(\d+)\s+(?:packets\s+)?received", out)
     loss = re.search(r"(\d+(?:\.\d+)?)% packet loss", out)
     stats = re.search(
         r"(?:rtt|round-trip)\s+min/avg/max/(?:mdev|stddev)\s*=\s*"

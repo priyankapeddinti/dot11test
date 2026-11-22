@@ -60,11 +60,13 @@ networks:
   - ssid: TestAP-WPA2
     type: wpa2
     password: changeme
-  roam:
-    ssid: TestAP-WPA2
-    bssids:
-      - aa:bb:cc:dd:ee:01
-      - aa:bb:cc:dd:ee:02
+
+# For roam tests: two BSSIDs of the same SSID on different APs/bands.
+roam:
+  ssid: TestAP-WPA2
+  bssids:
+    - aa:bb:cc:dd:ee:01
+    - aa:bb:cc:dd:ee:02
 
 soak:
   duration: 300
