@@ -27,6 +27,5 @@ def test_connect_to_configured_network(device, config, net_index):
 def test_disconnect_reconnect(connected, device):
     original_ssid = connected.ssid
     device.wifi.disconnect()
-    device.wifi.wait_for_disconnected(timeout=15)
     status = device.wifi.wait_for_connected(ssid=original_ssid, timeout=30)
     assert status.connected and status.ssid == original_ssid

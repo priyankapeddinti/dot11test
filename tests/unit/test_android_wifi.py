@@ -92,10 +92,29 @@ def test_wait_for_connected_times_out(fake_shell):
         w.wait_for_connected(timeout=0.01)
 
 
-def test_disconnect_falls_back_to_toggle(fake_shell, monkeypatch):
-    sh = fake_shell({"cmd wifi disconnect": ShellResult(255, "", "Unknown command")})
-    w = Wifi(sh)
+def _spy_toggles(w, monkeypatch):
     toggles = []
     monkeypatch.setattr(w, "set_enabled", toggles.append)
+    return toggles
+
+
+def test_disconnect_unsupported_command_toggles_radio(fake_shell, monkeypatch):
+    w = Wifi(fake_shell({"cmd wifi disconnect": ShellResult(255, "", "Unknown command")}))
+    toggles = _spy_toggles(w, monkeypatch)
     w.disconnect()
+    assert toggles == [False, True]
+
+
+def test_disconnect_observed_does_not_toggle(fake_shell, monkeypatch):
+    w = Wifi(fake_shell({"dumpsys wifi": DUMPSYS_DISABLED}))
+    toggles = _spy_toggles(w, monkeypatch)
+    w.disconnect()
+    assert toggles == []
+
+
+def test_disconnect_fast_rejoin_falls_back_to_toggle(fake_shell, monkeypatch):
+    # Device still reports connected (auto-rejoin beat our poll).
+    w = Wifi(fake_shell({"dumpsys wifi": DUMPSYS_CONNECTED}))
+    toggles = _spy_toggles(w, monkeypatch)
+    w.disconnect(timeout=0.01)
     assert toggles == [False, True]

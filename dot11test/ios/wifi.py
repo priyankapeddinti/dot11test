@@ -46,6 +46,11 @@ class IosWifi:
         # helper: dict of action -> command template (str). Templates may use
         # {ssid}, {password}, {bssid}.
         self.helper = helper or {}
+        # Without a helper that reports `enabled=`, the radio state can't be read
+        # back, so status() falls back to the last state we commanded.
+        self._assumed_enabled = True
+        self._enabled_reported = False
+        self._warned_unverified_ssid = False
 
     # --- helpers ---------------------------------------------------------
 
@@ -69,9 +74,16 @@ class IosWifi:
     def set_enabled(self, enabled: bool) -> None:
         cmd = self._require_helper("enable" if enabled else "disable")
         self.ssh.shell(cmd)
+        self._assumed_enabled = enabled
         deadline = time.time() + 15
         while time.time() < deadline:
-            if self.status().enabled == enabled:
+            s = self.status()
+            if self._enabled_reported:
+                done = s.enabled == enabled
+            else:
+                # Best observable proxy: radio off implies no association.
+                done = enabled or not s.connected
+            if done:
                 return
             time.sleep(0.5)
         raise TimeoutError(f"WiFi did not reach enabled={enabled} within 15s")
@@ -131,14 +143,22 @@ class IosWifi:
         self.ssh.shell(cmd)
         return self.wait_for_connected(ssid=ssid, timeout=timeout)
 
-    def disconnect(self) -> None:
+    def disconnect(self, timeout: float = 5) -> None:
+        """Drop the association and return once a disconnected state was observed.
+
+        iOS may auto-rejoin immediately afterwards, so callers should not poll
+        for a disconnected state themselves.
+        """
         cmd = self._helper_cmd("disconnect")
         if cmd:
             self.ssh.shell(cmd, check=False)
-        else:
-            # Fallback: toggle radio if disable/enable are available.
-            self.set_enabled(False)
-            self.set_enabled(True)
+            try:
+                self.wait_for_disconnected(timeout=timeout)
+                return
+            except TimeoutError:
+                log.info("Disconnect not observed (fast auto-rejoin?); toggling radio")
+        self.set_enabled(False)
+        self.set_enabled(True)
 
     def forget(self, ssid: str) -> None:
         cmd = self._helper_cmd("forget", ssid=ssid)
@@ -150,7 +170,8 @@ class IosWifi:
     def status(self) -> WifiStatus:
         ssid = bssid = None
         rssi = freq = None
-        enabled = True   # assume on; only the helper can authoritatively answer
+        enabled = self._assumed_enabled
+        self._enabled_reported = False
         connected = False
         ip = None
 
@@ -165,6 +186,7 @@ class IosWifi:
             enabled_kv = self._kv(out, "enabled")
             if enabled_kv is not None:
                 enabled = enabled_kv in ("1", "true", "yes")
+                self._enabled_reported = True
 
         # 2) Always cross-check connectivity via ifconfig + route.
         ifc = self.ssh.shell(f"ifconfig {self.interface}", check=False).stdout
@@ -192,12 +214,25 @@ class IosWifi:
         last: WifiStatus | None = None
         while time.time() < deadline:
             last = self.status()
-            if last.connected and last.ip_address and (ssid is None or last.ssid in (None, ssid)):
+            if last.connected and last.ip_address and self._ssid_matches(last.ssid, ssid):
                 return last
             time.sleep(1.0)
         raise TimeoutError(
             f"Did not connect to SSID={ssid!r} within {timeout}s; last status={last}"
         )
+
+    def _ssid_matches(self, actual: str | None, expected: str | None) -> bool:
+        if expected is None or actual == expected:
+            return True
+        if actual is None and "status" not in self.helper:
+            # No way to read the SSID back; accept, but make the gap visible.
+            if not self._warned_unverified_ssid:
+                log.warning(
+                    "Cannot verify SSID %r: no ios.wifi_helper.status configured", expected
+                )
+                self._warned_unverified_ssid = True
+            return True
+        return False
 
     def wait_for_disconnected(self, timeout: float = 15) -> None:
         deadline = time.time() + timeout

@@ -97,13 +97,22 @@ class Wifi:
         self.adb.shell(cmd)
         return self.wait_for_connected(ssid=ssid, timeout=timeout)
 
-    def disconnect(self) -> None:
-        # Forget-then-disable is harsh; use `cmd wifi disconnect` if available,
-        # otherwise toggle radio.
+    def disconnect(self, timeout: float = 5) -> None:
+        """Drop the association and return once a disconnected state was observed.
+
+        Android may auto-rejoin immediately afterwards, so callers should not
+        poll for a disconnected state themselves.
+        """
         res = self.adb.shell("cmd wifi disconnect", check=False)
-        if not res.ok:
-            self.set_enabled(False)
-            self.set_enabled(True)
+        if res.ok:
+            try:
+                self.wait_for_disconnected(timeout=timeout)
+                return
+            except TimeoutError:
+                log.info("Disconnect not observed (fast auto-rejoin?); toggling radio")
+        # Radio off is a state we can reliably observe before re-enabling.
+        self.set_enabled(False)
+        self.set_enabled(True)
 
     def forget(self, ssid: str) -> None:
         self.adb.shell(f"cmd wifi forget-network {shlex.quote(ssid)}", check=False)

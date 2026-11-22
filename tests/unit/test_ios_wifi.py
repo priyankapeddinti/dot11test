@@ -76,3 +76,69 @@ def test_wait_for_connected_rejects_wrong_ssid(fake_shell):
     sh = fake_shell({"wifi-tool status": 'ssid="Other"', "ifconfig": IFCONFIG_UP})
     with pytest.raises(TimeoutError):
         IosWifi(sh, helper=HELPER).wait_for_connected(ssid="Mine", timeout=0.01)
+
+
+def test_wait_for_connected_rejects_missing_ssid_when_status_helper_exists(fake_shell):
+    # Helper is configured but didn't report an SSID: don't treat that as a match.
+    sh = fake_shell({"wifi-tool status": "rssi=-50", "ifconfig": IFCONFIG_UP})
+    with pytest.raises(TimeoutError):
+        IosWifi(sh, helper=HELPER).wait_for_connected(ssid="Mine", timeout=0.01)
+
+
+def test_wait_for_connected_accepts_unknown_ssid_without_status_helper(fake_shell, caplog):
+    helper = {k: v for k, v in HELPER.items() if k != "status"}
+    w = IosWifi(fake_shell({"ifconfig": IFCONFIG_UP}), helper=helper)
+    assert w.wait_for_connected(ssid="Mine", timeout=1).connected
+    assert "Cannot verify SSID" in caplog.text
+
+
+class SequenceShell:
+    """Returns ifconfig output that changes after the disable command runs."""
+
+    def __init__(self):
+        self.calls, self.radio_on = [], True
+
+    def shell(self, cmd, **kw):
+        from dot11test.types import ShellResult
+        self.calls.append(cmd)
+        if cmd == "wifi-tool off":
+            self.radio_on = False
+        elif cmd == "wifi-tool on":
+            self.radio_on = True
+        if cmd.startswith("ifconfig"):
+            return ShellResult(0, IFCONFIG_UP if self.radio_on else IFCONFIG_NO_IP, "")
+        return ShellResult(0, "", "")
+
+
+def test_set_enabled_without_enabled_report_uses_connectivity_proxy():
+    helper = {k: v for k, v in HELPER.items() if k != "status"}
+    w = IosWifi(SequenceShell(), helper=helper)
+    w.set_enabled(False)  # returns once not connected, instead of timing out
+    assert w.status().enabled is False
+    w.set_enabled(True)
+    assert w.status().enabled is True
+
+
+def test_set_enabled_prefers_helper_enabled_report(fake_shell):
+    sh = fake_shell({"wifi-tool status": "enabled=1", "ifconfig": IFCONFIG_NO_IP})
+    w = IosWifi(sh, helper=HELPER)
+    w.set_enabled(True)
+    assert w.status().enabled is True
+
+
+def test_disconnect_helper_observed(fake_shell, monkeypatch):
+    helper = {**HELPER, "disconnect": "wifi-tool disconnect"}
+    w = IosWifi(fake_shell({"ifconfig": IFCONFIG_NO_IP}), helper=helper)
+    toggles = []
+    monkeypatch.setattr(w, "set_enabled", toggles.append)
+    w.disconnect()
+    assert toggles == []
+
+
+def test_disconnect_fast_rejoin_toggles(fake_shell, monkeypatch):
+    helper = {**HELPER, "disconnect": "wifi-tool disconnect"}
+    w = IosWifi(fake_shell({"ifconfig": IFCONFIG_UP}), helper=helper)
+    toggles = []
+    monkeypatch.setattr(w, "set_enabled", toggles.append)
+    w.disconnect(timeout=0.01)
+    assert toggles == [False, True]
