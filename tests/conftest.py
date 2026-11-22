@@ -7,6 +7,8 @@ import pytest
 
 from dot11test.config import Config, ConfigError, load_config
 
+pytest_plugins = ["dot11test.pytest_plugin"]
+
 log = logging.getLogger(__name__)
 
 
@@ -90,10 +92,7 @@ def _make_ios_device(config: Config):
 @pytest.fixture
 def wifi_on(device):
     """Ensure WiFi is enabled before the test."""
-    try:
-        device.wifi.set_enabled(True)
-    except NotImplementedError as e:
-        pytest.skip(str(e))
+    device.wifi.set_enabled(True)
     yield device.wifi
 
 
@@ -104,15 +103,12 @@ def connected(device, config):
     primary = next((n for n in networks if isinstance(n, dict) and "ssid" in n), None)
     if not primary:
         pytest.skip("No networks configured")
-    try:
-        device.wifi.set_enabled(True)
-        status = device.wifi.connect(
-            ssid=primary["ssid"],
-            security=primary.get("type", "open"),
-            password=primary.get("password"),
-        )
-    except NotImplementedError as e:
-        pytest.skip(str(e))
+    device.wifi.set_enabled(True)
+    status = device.wifi.connect(
+        ssid=primary["ssid"],
+        security=primary.get("type", "open"),
+        password=primary.get("password"),
+    )
     log.info(
         "Connected: ssid=%s bssid=%s rssi=%s freq=%s ip=%s",
         status.ssid, status.bssid, status.rssi_dbm, status.frequency_mhz, status.ip_address,

@@ -27,6 +27,9 @@ class Adb:
     def __init__(self, serial: str | None = None, adb_binary: str = "adb"):
         self.serial = serial
         self.adb_binary = adb_binary
+        # True once adbd itself runs as root; then `su` is unnecessary (and AOSP's
+        # su on userdebug builds doesn't accept `-c`).
+        self.is_root = False
 
     def _prefix(self) -> list[str]:
         if self.serial:
@@ -63,7 +66,7 @@ class Adb:
         check: bool = True,
         as_root: bool = False,
     ) -> ShellResult:
-        if as_root:
+        if as_root and not self.is_root:
             cmd = f"su -c {shlex.quote(cmd)}"
         return self.run(["shell", cmd], timeout=timeout, check=check)
 
@@ -81,8 +84,13 @@ class Adb:
         try:
             self.run(["root"], timeout=15, check=False)
             self.wait_for_device()
+            uid = self.run(["shell", "id -u"], timeout=10, check=False).stdout.strip()
+            self.is_root = uid == "0"
         except Exception as e:
             log.warning("adb root failed (likely user build): %s", e)
+            self.is_root = False
+        if not self.is_root:
+            log.info("adbd not running as root; root commands will use `su -c`")
 
     def devices(self) -> list[str]:
         out = self.run(["devices"], timeout=10).stdout

@@ -37,6 +37,8 @@ def test_reconnect_loop(device, config):
             assert status.connected and status.ip_address
             device.wifi.disconnect()
             log.info("iter %d/%d ok", i + 1, iterations)
+        except NotImplementedError:
+            raise
         except Exception as e:
             log.error("iter %d failed: %s", i + 1, e)
             failures.append((i + 1, str(e)))

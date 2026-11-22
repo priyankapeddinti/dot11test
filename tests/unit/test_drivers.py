@@ -41,6 +41,34 @@ def test_adb_shell_as_root_wraps_su(capture_run):
     assert capture_run[0] == ["adb", "shell", "su -c 'svc wifi enable'"]
 
 
+def test_adb_shell_as_root_skips_su_when_adbd_is_root(capture_run):
+    a = Adb()
+    a.is_root = True
+    a.shell("svc wifi enable", as_root=True)
+    assert capture_run[0] == ["adb", "shell", "svc wifi enable"]
+
+
+@pytest.mark.parametrize("uid,expected", [("0\n", True), ("2000\n", False)])
+def test_adb_root_detects_uid(monkeypatch, uid, expected):
+    def fake_run(cmd, **kw):
+        return FakeProc(0, uid if cmd[-1] == "id -u" else "")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    a = Adb()
+    a.root()
+    assert a.is_root is expected
+
+
+def test_adb_root_failure_leaves_non_root(monkeypatch):
+    def fake_run(cmd, **kw):
+        raise subprocess.TimeoutExpired(cmd, 15)
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    a = Adb()
+    a.root()
+    assert a.is_root is False
+
+
 def test_adb_raises_on_failure(monkeypatch):
     monkeypatch.setattr(subprocess, "run", lambda cmd, **kw: FakeProc(1, "", "boom"))
     with pytest.raises(AdbError, match="boom"):
@@ -78,3 +106,15 @@ def test_scp_push_uses_capital_p(capture_run):
 
 def test_ssh_reachable(capture_run):
     assert Ssh().reachable() is True
+
+
+def test_ios_device_info(fake_shell):
+    from dot11test.ios.device import IosDevice
+
+    sh = fake_shell({
+        "uname -m": "iPhone14,5\n",
+        "sw_vers": "ProductName:\tiPhone OS\nProductVersion:\t16.5\nBuildVersion:\t20F66\n",
+    })
+    sh.user, sh.host, sh.port = "root", "127.0.0.1", 2222
+    info = IosDevice(sh).info()
+    assert (info.product, info.ios_version, info.build) == ("iPhone14,5", "16.5", "20F66")

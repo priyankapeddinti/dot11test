@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass
 
 from ..iperf import Iperf3
@@ -38,24 +39,14 @@ class IosDevice:
         return f"{self.ssh.user}@{self.ssh.host}:{self.ssh.port}"
 
     def info(self) -> IosDeviceInfo:
-        def gv(key: str) -> str:
-            res = self.ssh.shell(f"gestalt_query {key}", check=False)
-            if res.ok and res.stdout.strip():
-                return res.stdout.strip()
-            res = self.ssh.shell(f"sw_vers {key}", check=False)
-            return res.stdout.strip()
-
-        product = self.ssh.shell(
-            "uname -m && sysctl -n hw.machine 2>/dev/null", check=False
-        ).stdout.strip().splitlines()[-1:] or [""]
+        product = self.ssh.shell("uname -m", check=False).stdout.strip()
         # `sw_vers` is the most portable across jailbreaks.
         sw = self.ssh.shell("sw_vers", check=False).stdout
-        import re
         ver = re.search(r"ProductVersion:\s*(\S+)", sw)
         build = re.search(r"BuildVersion:\s*(\S+)", sw)
         return IosDeviceInfo(
             host=f"{self.ssh.host}:{self.ssh.port}",
-            product=product[0],
+            product=product,
             ios_version=ver.group(1) if ver else "",
             build=build.group(1) if build else "",
         )
